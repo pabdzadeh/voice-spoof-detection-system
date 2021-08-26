@@ -6,13 +6,13 @@ import os
 import random
 import numpy as np
 
-## Adapted from https://github.com/joaomonteirof/e2e_antispoofing
+
+# Adapted from https://github.com/joaomonteirof/e2e_antispoofing
 
 class SelfAttention(nn.Module):
     def __init__(self, hidden_size, mean_only=False):
         super(SelfAttention, self).__init__()
 
-        #self.output_size = output_size
         self.hidden_size = hidden_size
         self.att_weights = nn.Parameter(torch.Tensor(1, hidden_size),requires_grad=True)
 
@@ -94,11 +94,14 @@ class PreActBottleneck(nn.Module):
         out += shortcut
         return out
 
+
 def conv3x3(in_planes, out_planes, stride=1):
     return nn.Conv2d(in_planes, out_planes, kernel_size=3, stride=stride, padding=1, bias=False)
 
+
 def conv1x1(in_planes, out_planes, stride=1):
     return nn.Conv2d(in_planes, out_planes, kernel_size=1, stride=stride, bias=False)
+
 
 RESNET_CONFIGS = {'18': [[2, 2, 2, 2], PreActBlock],
                   '28': [[3, 4, 6, 3], PreActBlock],
@@ -106,6 +109,7 @@ RESNET_CONFIGS = {'18': [[2, 2, 2, 2], PreActBlock],
                   '50': [[3, 4, 6, 3], PreActBottleneck],
                   '101': [[3, 4, 23, 3], PreActBottleneck]
                   }
+
 
 def setup_seed(random_seed, cudnn_deterministic=True):
     # initialization
@@ -118,6 +122,7 @@ def setup_seed(random_seed, cudnn_deterministic=True):
         torch.cuda.manual_seed_all(random_seed)
         torch.backends.cudnn.deterministic = cudnn_deterministic
         torch.backends.cudnn.benchmark = False
+
 
 class ResNet(nn.Module):
     def __init__(self, num_nodes, enc_dim, resnet_type='18', nclasses=2):
@@ -172,7 +177,6 @@ class ResNet(nn.Module):
         return nn.Sequential(*layers)
 
     def forward(self, x):
-
         x = self.conv1(x)
         x = self.activation(self.bn1(x))
         x = self.layer1(x)
@@ -180,12 +184,11 @@ class ResNet(nn.Module):
         x = self.layer3(x)
         x = self.layer4(x)
         x = self.conv5(x)
-        x = self.activation(self.bn5(x)).squeeze(2)
-
+        x = self.activation(self.bn5(x)).reshape(x.shape[0], x.shape[1], -1)
         stats = self.attention(x.permute(0, 2, 1).contiguous())
 
         feat = self.fc(stats)
 
         mu = self.fc_mu(feat)
 
-        return feat, mu
+        return mu

@@ -1,10 +1,9 @@
 import argparse
 import os
-import sys
-
+import time
 import numpy as np
-import torch
-import torch.nn as nn
+import json
+
 from torch import Tensor
 import torchvision
 import librosa
@@ -14,11 +13,9 @@ from tensorboardX import SummaryWriter
 import tools.dataset_loader as dataset_loader
 from sklearn.model_selection import KFold
 
-import json
-import shutil
-from resnet import setup_seed, ResNet
-from loss import *
+from resnet import setup_seed
 from collections import defaultdict
+from loss import *
 import evaluation_metrics as em
 
 
@@ -52,6 +49,7 @@ def add_parser(parser):
     parser.add_argument('--lr', type=float, default=0.0003, help="learning rate")
     parser.add_argument('--lr_decay', type=float, default=0.5, help="decay learning rate")
     parser.add_argument('--interval', type=int, default=10, help="interval to decay lr")
+    parser.add_argument('--epoch', type=int, default=0, help="interval to decay lr")
 
     parser.add_argument('--beta_1', type=float, default=0.9, help="bata_1 for Adam")
     parser.add_argument('--beta_2', type=float, default=0.999, help="beta_2 for Adam")
@@ -67,8 +65,8 @@ def add_parser(parser):
     parser.add_argument('--r_fake', type=float, default=0.2, help="r_fake for ocsoftmax")
     parser.add_argument('--alpha', type=float, default=20, help="scale factor for ocsoftmax")
 
-    parser.add_argument('--model_path', type=float, help="saved model path")
-    parser.add_argument('--loss_model_path', type=float, help="saved loss model path")
+    parser.add_argument('--model_path', type=str, help="saved model path")
+    parser.add_argument('--loss_model_path', type=str, help="saved loss model path")
 
     parser.add_argument('--continue_training', action='store_true',
                         help="continue training with previously trained model")
@@ -87,17 +85,6 @@ def add_parser(parser):
         # Path for output data
         if not os.path.exists('./log/'):
             os.makedirs('./log/')
-        # else:
-        #     shutil.rmtree(args.out_fold)
-        #     os.mkdir(args.out_fold)
-
-        # Folder for intermediate results
-        # if not os.path.exists(os.path.join(args.out_fold, 'checkpoint')):
-        #     os.makedirs(os.path.join(args.out_fold, 'checkpoint'))
-        # else:
-        #     shutil.rmtree(os.path.join(args.out_fold, 'checkpoint'))
-        #     os.mkdir(os.path.join(args.out_fold, 'checkpoint'))
-
 
         # Save training arguments
         with open(os.path.join('./log/', 'args.json'), 'w') as file:
@@ -127,7 +114,7 @@ def pad(x, max_len=64000):
     if x_len >= max_len:
         return x[:max_len]
     # need to pad
-    num_repeats = (max_len / x_len)+1
+    num_repeats = (max_len / x_len) + 1
     x_repeat = np.repeat(x, num_repeats)
     padded_x = x_repeat[:max_len]
     return padded_x
@@ -167,10 +154,10 @@ def k_fold_cross_validation(k_fold, train_set, batch_size):
 
 
 def train(parser, device):
-    print(f'{Color.OKGREEN}Loading  train dataset...')
+    print(f'{Color.OKGREEN}Loading  train dataset...{Color.ENDC}')
     args = parser.parse_args()
     model = Model(input_channels=1, num_classes=256, device=device)
-
+    oc_softmax = OCSoftmax(args.enc_dim, r_real=args.r_real, r_fake=args.r_fake, alpha=args.alpha).to(device)
 
     transforms = torchvision.transforms.Compose([
         lambda x: pad(x),
@@ -182,11 +169,11 @@ def train(parser, device):
 
     if args.model_path:
         model.load_state_dict(torch.load(args.model_path))
-        model.load_state_dict(torch.load(args.loss_model_path))
+        oc_softmax.load_state_dict(torch.load(args.loss_model_path))
         print('Model loaded : {}'.format(args.model_path))
 
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr,
-                                      betas=(args.beta_1, args.beta_2), eps=args.eps, weight_decay=0.0005)
+                                 betas=(args.beta_1, args.beta_2), eps=args.eps, weight_decay=0.0005)
 
     train_set = dataset_loader.ASVDataset(is_train=True, transform=transforms)
 
@@ -194,13 +181,14 @@ def train(parser, device):
     monitor_loss = args.add_loss
 
     model.train()
-
-    oc_softmax = OCSoftmax(args.enc_dim, r_real=args.r_real, r_fake=args.r_fake, alpha=args.alpha).to(device)
     oc_softmax.train()
     oc_softmax_optimizer = torch.optim.SGD(oc_softmax.parameters(), lr=args.lr)
+
     print(f'{Color.ENDC}Train Start...')
 
-    for epoch in range(number_of_epochs):
+    for epoch in range(args.epoch, number_of_epochs):
+        start = time.time()
+
         print(f'{Color.OKBLUE}Epoch:{epoch}{Color.ENDC}')
         train_loader, validation_loader = k_fold_cross_validation(k_fold, train_set, batch_size=args.batch_size)
         model.train()
@@ -230,12 +218,18 @@ def train(parser, device):
                 log.write(str(epoch) + "\t" + "\t" +
                           str(np.nanmean(train_loss_dict[monitor_loss])) + "\n")
 
+        end = time.time()
+        hours, rem = divmod(end - start, 3600)
+        minutes, seconds = divmod(rem, 60)
+        print("{:0>2}:{:0>2}:{:05.2f}".format(int(hours), int(minutes), seconds))
+        print('start validation phase...')
+
         # Val the model
         model.eval()
         with torch.no_grad():
             idx_loader, score_loader = [], []
             for i, (batch_x, batch_y, batch_meta) in enumerate(validation_loader):
-                labels = batch_y.to(args.device)
+                labels = batch_y.to(device)
                 feats, outputs = model(batch_x)
 
                 oc_softmax_loss, score = oc_softmax(feats, labels)
@@ -255,9 +249,13 @@ def train(parser, device):
                     val_eer) + "\n")
             print("Val EER: {}".format(val_eer))
 
-        torch.save(model, os.path.join('./models/', 'checkpoint', 'model_%d.pt' % (epoch + 1)))
+        torch.save(model.state_dict(), os.path.join('./models/', 'model_%d.pt' % (epoch + 1)))
         loss_model = oc_softmax
-        torch.save(loss_model, os.path.join('./models/', 'checkpoint', 'loss_model_%d.pt' % (epoch + 1)))
+        torch.save(loss_model.state_dict(), os.path.join('./models/', 'loss_model_%d.pt' % (epoch + 1)))
+        end = time.time()
+        hours, rem = divmod(end - start, 3600)
+        minutes, seconds = divmod(rem, 60)
+        print("{:0>2}:{:0>2}:{:05.2f}".format(int(hours), int(minutes), seconds))
 
 
 def main():
@@ -273,6 +271,3 @@ if __name__ == '__main__':
 # writer.add_scalar('train_accuracy', train_accuracy, epoch)
 # writer.add_scalar('valid_accuracy', validation_accuracy, epoch)
 # writer.add_scalar('loss', running_loss, epoch)
-
-# if args.continue_training:
-    #     lfcc_model = torch.load(os.path.join(args.out_fold, 'anti-spoofing_lfcc_model.pt')).to(args.device)

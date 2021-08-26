@@ -26,21 +26,20 @@ class ASVDataset(Dataset):
 
         data_root = LOGICAL_DATA_ROOT
 
-        if is_eval:
-            data_root = os.path.join('eval', data_root)
-        if is_eval2021:
-            data_root = os.path.join('eval2021', data_root)
-
         self.is_eval = is_eval
 
         self.data_root = data_root
 
         self.dset_name = 'eval2021' if is_eval2021 else 'eval' if is_eval else 'train' if is_train else 'train'
 
-        self.files_dir = os.path.join(self.data_root, '{}'.format(self.dset_name))
-
         self.protocols_fname = os.path.join(self.data_root, self.dset_name + '.protocol.txt')
 
+        #         if is_eval:
+        #             data_root = os.path.join('eval', data_root)
+        #         if is_eval2021:
+        #             data_root = os.path.join('eval2021', data_root)
+
+        self.files_dir = os.path.join(self.data_root, '{}'.format(self.dset_name))
         self.transform = transform
 
         self.files_meta = self.parse_protocols_file(self.protocols_fname)
@@ -50,6 +49,7 @@ class ASVDataset(Dataset):
         return len(self.data_files)
 
     def __getitem__(self, idx):
+        idx = idx % len(self.files_meta)
         meta = self.files_meta[idx]
         data_x, data_y, _ = self.read_file(meta)
         data_x = self.transform(data_x)
