@@ -3,9 +3,48 @@ import torch
 import torch.nn.functional as F
 import tools.audio_utils
 from scipy.fft import dct
+import librosa
+import numpy as np
 
 
+class CQT(nn.Module):
+    def __init__(self, sampling_rate):
+        super(CQT, self).__init__()
+        self.sampling_rate = sampling_rate
 
+    def forward(self, x, device):
+        batch_size = x.shape[0]
+        batch_output = torch.zeros(batch_size, 84, 126)
+        batch_count = 0
+        for item in x:
+            numpy_item = item.numpy()
+            item_cqt = librosa.cqt(numpy_item, sr=self.sampling_rate)
+            item_cqt = librosa.amplitude_to_db(np.abs(item_cqt), ref=np.max)
+            item_torch_cqt = torch.from_numpy(item_cqt).to(device)
+            batch_output[batch_count] = item_torch_cqt
+            batch_count += 1
+
+        return batch_output.to(device)
+
+
+class Spectrogram(nn.Module):
+    def __init__(self, n_fft):
+        super(Spectrogram, self).__init__()
+        self.n_fft = n_fft
+
+    def forward(self, x, device):
+        batch_size = x.shape[0]
+        batch_output = torch.zeros(batch_size, 1025, 126)
+        batch_count = 0
+        for item in x:
+            numpy_item = item.numpy()
+            item_stft = librosa.stft(numpy_item, n_fft=self.n_fft)
+            item_stft = librosa.amplitude_to_db(np.abs(item_stft), ref=np.max)
+            item_torch_stft = torch.from_numpy(item_stft).to(device)
+            batch_output[batch_count] = item_torch_stft
+            batch_count += 1
+
+        return batch_output.to(device)
 
 class LinearDCT(nn.Linear):
     """Implement any DCT as a linear layer; in practice this executes around

@@ -77,9 +77,7 @@ def test_model(model_path, loss_model_path, part, add_loss, device):
             _, score = oc_softmax(feats, labels, is_train=False)
 
             for j in range(labels.size(0)):
-                cm_score_file_2021.write(
-                    '%s %s \n' % (batch_meta.file_name[j],
-                                  score[j].item()))
+                cm_score_file_2021.write('%s %s\n' % (batch_meta.file_name[j], score[j].item()))
 
     #     eer_cm, min_tDCF = compute_eer_and_tdcf(os.path.join('', './scores/checkpoint_cm_score.txt'),
     #                                             "./scores/")

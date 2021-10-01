@@ -45,29 +45,29 @@ def add_parser(parser):
     parser.add_argument("--enc_dim", type=int, help="encoding dimension", default=256)
 
     # Training hyperparameters
-    parser.add_argument('--num_epochs', type=int, default=1, help="Number of epochs for training")
-    parser.add_argument('--batch_size', type=int, default=4, help="Mini batch size for training")
+    parser.add_argument('--num-epochs', type=int, default=1, help="Number of epochs for training")
+    parser.add_argument('--batch-size', type=int, default=4, help="Mini batch size for training")
     parser.add_argument('--lr', type=float, default=0.0003, help="learning rate")
-    parser.add_argument('--lr_decay', type=float, default=0.5, help="decay learning rate")
+    parser.add_argument('--lr-decay', type=float, default=0.5, help="decay learning rate")
     parser.add_argument('--interval', type=int, default=10, help="interval to decay lr")
     parser.add_argument('--epoch', type=int, default=0, help="interval to decay lr")
 
-    parser.add_argument('--beta_1', type=float, default=0.9, help="bata_1 for Adam")
-    parser.add_argument('--beta_2', type=float, default=0.999, help="beta_2 for Adam")
+    parser.add_argument('--beta-1', type=float, default=0.9, help="bata_1 for Adam")
+    parser.add_argument('--beta-2', type=float, default=0.999, help="beta_2 for Adam")
     parser.add_argument('--eps', type=float, default=1e-8, help="epsilon for Adam")
     parser.add_argument("--gpu", type=str, help="GPU index", default="1")
-    parser.add_argument('--num_workers', type=int, default=0, help="number of workers")
+    parser.add_argument('--num-workers', type=int, default=0, help="number of workers")
     parser.add_argument('--seed', type=int, help="random number seed", default=598)
 
-    parser.add_argument('--add_loss', type=str, default="ocsoftmax",
+    parser.add_argument('--add-loss', type=str, default="ocsoftmax",
                         choices=["softmax", 'amsoftmax', 'ocsoftmax'], help="loss for one-class training")
-    parser.add_argument('--weight_loss', type=float, default=1, help="weight for other loss")
-    parser.add_argument('--r_real', type=float, default=0.9, help="r_real for ocsoftmax")
-    parser.add_argument('--r_fake', type=float, default=0.2, help="r_fake for ocsoftmax")
+    parser.add_argument('--weight-loss', type=float, default=1, help="weight for other loss")
+    parser.add_argument('--r-real', type=float, default=0.9, help="r_real for ocsoftmax")
+    parser.add_argument('--r-fake', type=float, default=0.2, help="r_fake for ocsoftmax")
     parser.add_argument('--alpha', type=float, default=20, help="scale factor for ocsoftmax")
 
-    parser.add_argument('--model_path', type=str, help="saved model path")
-    parser.add_argument('--loss_model_path', type=str, help="saved loss model path")
+    parser.add_argument('--model-path', type=str, help="saved model path")
+    # parser.add_argument('--loss_model-path', type=str, help="saved loss model path")
 
     parser.add_argument('--continue_training', action='store_true',
                         help="continue training with previously trained model")
@@ -158,7 +158,7 @@ def train(parser, device):
     print(f'{Color.OKGREEN}Loading  train dataset...{Color.ENDC}')
     args = parser.parse_args()
     model = Model(input_channels=1, num_classes=256, device=device)
-    oc_softmax = OCSoftmax(args.enc_dim, r_real=args.r_real, r_fake=args.r_fake, alpha=args.alpha).to(device)
+    # oc_softmax = OCSoftmax(args.enc_dim, r_real=args.r_real, r_fake=args.r_fake, alpha=args.alpha).to(device)
 
     transforms = torchvision.transforms.Compose([
         lambda x: pad(x),
@@ -170,7 +170,7 @@ def train(parser, device):
 
     if args.model_path:
         model.load_state_dict(torch.load(args.model_path))
-        oc_softmax.load_state_dict(torch.load(args.loss_model_path))
+        # oc_softmax.load_state_dict(torch.load(args.loss_model_path))
         print('Model loaded : {}'.format(args.model_path))
 
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr,
@@ -182,8 +182,8 @@ def train(parser, device):
     monitor_loss = args.add_loss
 
     model.train()
-    oc_softmax.train()
-    oc_softmax_optimizer = torch.optim.SGD(oc_softmax.parameters(), lr=args.lr)
+    # oc_softmax.train()
+    # oc_softmax_optimizer = torch.optim.SGD(oc_softmax.parameters(), lr=args.lr)
 
     print(f'{Color.ENDC}Train Start...')
 
@@ -197,23 +197,23 @@ def train(parser, device):
         dev_loss_dict = defaultdict(list)
 
         adjust_learning_rate(args, optimizer, epoch)
-        adjust_learning_rate(args, oc_softmax_optimizer, epoch)
+        # adjust_learning_rate(args, oc_softmax_optimizer, epoch)
 
         for batch_x, batch_y, batch_meta in train_loader:
             batch_x = batch_x.to(device)
             batch_y = batch_y.view(-1).type(torch.int64).to(device)
 
             labels = batch_y.to(device)
-            feats, outputs = model(batch_x)
+            loss, score = model(batch_x, labels)
 
-            oc_softmax_loss, _ = oc_softmax(feats, labels)
-            loss = oc_softmax_loss * args.weight_loss
+            # oc_softmax_loss, score = oc_softmax(feats, labels)
+            # loss = oc_softmax_loss
             optimizer.zero_grad()
-            oc_softmax_optimizer.zero_grad()
-            train_loss_dict[args.add_loss].append(oc_softmax_loss.item())
+            # oc_softmax_optimizer.zero_grad()
+            train_loss_dict[args.add_loss].append(loss.item())
             loss.backward()
             optimizer.step()
-            oc_softmax_optimizer.step()
+            # oc_softmax_optimizer.step()
 
             with open(os.path.join('./log/', 'train_loss.log'), 'a') as log:
                 log.write(str(epoch) + "\t" + "\t" +
@@ -231,11 +231,11 @@ def train(parser, device):
             idx_loader, score_loader = [], []
             for i, (batch_x, batch_y, batch_meta) in enumerate(validation_loader):
                 labels = batch_y.to(device)
-                feats, outputs = model(batch_x)
+                loss, score = model(batch_x)
 
-                oc_softmax_loss, score = oc_softmax(feats, labels)
+                # oc_softmax_loss, score = oc_softmax(feats, labels)
 
-                dev_loss_dict[args.add_loss].append(oc_softmax_loss.item())
+                dev_loss_dict[args.add_loss].append(loss.item())
                 idx_loader.append(labels)
                 score_loader.append(score)
 
