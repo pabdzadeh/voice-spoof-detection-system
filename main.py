@@ -163,14 +163,14 @@ def train(parser, device):
     transforms = torchvision.transforms.Compose([
         lambda x: pad(x),
         lambda x: librosa.util.normalize(x),
-        lambda x: Tensor(x)
+        lambda x: librosa.cqt(x),
+        lambda x: Tensor(x),
     ])
 
     k_fold = KFold(n_splits=5, shuffle=True)
 
     if args.model_path:
         model.load_state_dict(torch.load(args.model_path))
-        # oc_softmax.load_state_dict(torch.load(args.loss_model_path))
         print('Model loaded : {}'.format(args.model_path))
 
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr,
@@ -182,8 +182,6 @@ def train(parser, device):
     monitor_loss = args.add_loss
 
     model.train()
-    # oc_softmax.train()
-    # oc_softmax_optimizer = torch.optim.SGD(oc_softmax.parameters(), lr=args.lr)
 
     print(f'{Color.ENDC}Train Start...')
 
@@ -197,7 +195,6 @@ def train(parser, device):
         dev_loss_dict = defaultdict(list)
 
         adjust_learning_rate(args, optimizer, epoch)
-        # adjust_learning_rate(args, oc_softmax_optimizer, epoch)
 
         for batch_x, batch_y, batch_meta in train_loader:
             batch_x = batch_x.to(device)
@@ -206,14 +203,11 @@ def train(parser, device):
             labels = batch_y.to(device)
             loss, score = model(batch_x, labels)
 
-            # oc_softmax_loss, score = oc_softmax(feats, labels)
-            # loss = oc_softmax_loss
             optimizer.zero_grad()
-            # oc_softmax_optimizer.zero_grad()
+
             train_loss_dict[args.add_loss].append(loss.item())
             loss.backward()
             optimizer.step()
-            # oc_softmax_optimizer.step()
 
             with open(os.path.join('./log/', 'train_loss.log'), 'a') as log:
                 log.write(str(epoch) + "\t" + "\t" +
