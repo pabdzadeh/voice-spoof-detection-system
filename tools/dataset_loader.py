@@ -34,11 +34,6 @@ class ASVDataset(Dataset):
 
         self.protocols_fname = os.path.join(self.data_root, self.dset_name + '.protocol.txt')
 
-        #         if is_eval:
-        #             data_root = os.path.join('eval', data_root)
-        #         if is_eval2021:
-        #             data_root = os.path.join('eval2021', data_root)
-
         self.files_dir = os.path.join(self.data_root, '{}'.format(self.dset_name))
         self.transform = transform
 

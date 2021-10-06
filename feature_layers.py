@@ -1,8 +1,6 @@
 import torch.nn as nn
 import torch
-import torch.nn.functional as F
 import tools.audio_utils
-from scipy.fft import dct
 import librosa
 import numpy as np
 
@@ -45,6 +43,7 @@ class Spectrogram(nn.Module):
             batch_count += 1
 
         return batch_output.to(device)
+
 
 class LinearDCT(nn.Linear):
     """Implement any DCT as a linear layer; in practice this executes around
