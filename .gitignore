@@ -1,5 +1,6 @@
-./data/train
-./data/eval
+./data/train/*.flac
+./data/eval/*.flac
+./data/eval2021/*.flac
 ./oc-rep
 ./cqcc
 ./.idea
