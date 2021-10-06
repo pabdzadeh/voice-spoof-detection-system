@@ -7,7 +7,7 @@ class Model(nn.Module):
         super(Model, self).__init__()
 
         self.device = device
-        self.cqt = tSpec.CQT()
+        self.cqt = tSpec.CQT().to(device)
         self.resnet = ResNet(3, 256, resnet_type='18', nclasses=256).to(device)
 
         self.mlp_layer1 = nn.Linear(num_classes, 256).to(device)
