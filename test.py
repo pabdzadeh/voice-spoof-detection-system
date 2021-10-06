@@ -4,7 +4,7 @@ import torch
 from torch.utils.data import DataLoader
 import torch.nn as nn
 import torch.nn.functional as F
-from evaluate_tDCF_asvspoof19 import compute_eer_and_tdcf
+from evaluate_tDCF_asvspoof19 import evaluate_tDCF_asvspoof19
 from tqdm import tqdm
 import evaluation_metrics as em
 import numpy as np
@@ -36,10 +36,8 @@ def test_model(model_path, device, batch_size):
     ])
 
     model = Model(input_channels=1, num_classes=256, device=device).to(device)
-    oc_softmax = OCSoftmax(256, r_real=0.9, r_fake=0.2, alpha=20).to(device)
 
     model.load_state_dict(torch.load(model_path, map_location="cuda"))
-    oc_softmax.load_state_dict(torch.load(loss_model_path))
 
     test_set = ASVDataset(is_train=False, is_eval=True, is_eval2021=False, transform=transforms)
     test_set_2021 = ASVDataset(is_train=False, is_eval=True, is_eval2021=True, transform=transforms)
@@ -47,22 +45,19 @@ def test_model(model_path, device, batch_size):
     test_data_loader_2021 = DataLoader(test_set_2021, batch_size=batch_size, shuffle=False, num_workers=0)
 
     model.eval()
-    oc_softmax.eval()
 
     with open('./scores/cm_score.txt', 'w') as cm_score_file:
         for batch_x, batch_y, batch_meta in test_data_loader:
             batch_x = batch_x.to(device)
             labels = batch_y.to(device)
 
-            feats, outputs = model(batch_x)
-
-            _, score = oc_softmax(feats, labels)
+            loss, score = model(batch_x, labels)
 
             for j in range(labels.size(0)):
                 cm_score_file.write(
                     '%s %s %s\n' % (batch_meta.file_name[j],
-                                          "spoof" if labels[j].data.cpu().numpy() else "bonafide",
-                                          score[j].item()))
+                                    "spoof" if labels[j].data.cpu().numpy() else "bonafide",
+                                    score[j].item()))
 
     with open('./scores/cm_score_2021.txt', 'w') as cm_score_file_2021:
         for batch_x, batch_y, batch_meta in test_data_loader_2021:
@@ -71,16 +66,13 @@ def test_model(model_path, device, batch_size):
 
             labels = batch_y.to(device)
 
-            feats, outputs = model(batch_x)
-
-            _, score = oc_softmax(feats, labels, is_train=False)
+            loss, score = model(batch_x, labels)
 
             for j in range(labels.size(0)):
                 cm_score_file_2021.write('%s %s\n' % (batch_meta.file_name[j], score[j].item()))
 
-    #     eer_cm, min_tDCF = compute_eer_and_tdcf(os.path.join('', './scores/checkpoint_cm_score.txt'),
-    #                                             "./scores/")
-    #     return eer_cm, min_tDCF
+    evaluate_tDCF_asvspoof19(os.path.join('', './scores/cm_score.txt'),
+                             './scores/ASVspoof2019.LA.asv.eval.scores.txt', None)
     return
 
 

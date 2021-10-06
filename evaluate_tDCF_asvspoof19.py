@@ -1,6 +1,6 @@
 import sys
 import numpy as np
-import eval_metrics as em
+import evaluation_metrics as em
 import matplotlib.pyplot as plt
 
 def evaluate_tDCF_asvspoof19(cm_score_file, asv_score_file, legacy):
