@@ -223,7 +223,7 @@ def train(parser, device):
             idx_loader, score_loader = [], []
             for i, (batch_x, batch_y, batch_meta) in enumerate(validation_loader):
                 labels = batch_y.to(device)
-                loss, score = model(batch_x)
+                loss, score = model(batch_x, labels)
 
                 dev_loss_dict[args.add_loss].append(loss.item())
                 idx_loader.append(labels)
