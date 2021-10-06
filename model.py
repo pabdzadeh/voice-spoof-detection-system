@@ -1,25 +1,13 @@
-import torch
-import torch.nn as nn
-import torch.nn.functional as F
-import torchaudio.transforms
-import feature_layers
-import math
-from numpy import log, exp, infty, zeros_like, vstack, zeros, errstate, finfo, sqrt, floor, tile, concatenate, arange, \
-    meshgrid, ceil, linspace
-from scipy.signal import lfilter
-from scipy.interpolate import interpn
-from scipy.fft import dct
 from resnet import *
 from loss import *
-import librosa
-
+import nnAudio.Spectrogram as tSpec
 
 class Model(nn.Module):
     def __init__(self, input_channels, num_classes, device):
         super(Model, self).__init__()
 
         self.device = device
-
+        self.cqt = tSpec.CQT()
         self.resnet = ResNet(3, 256, resnet_type='18', nclasses=256).to(device)
 
         self.mlp_layer1 = nn.Linear(num_classes, 256).to(device)
@@ -30,6 +18,7 @@ class Model(nn.Module):
 
     def forward(self, x, labels):
         x = x.to(self.device)
+        x = self.cqt(x)
 
         x = self.resnet(x.unsqueeze(1).float().to(self.device))
 

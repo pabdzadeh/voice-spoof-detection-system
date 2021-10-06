@@ -158,12 +158,10 @@ def train(parser, device):
     print(f'{Color.OKGREEN}Loading  train dataset...{Color.ENDC}')
     args = parser.parse_args()
     model = Model(input_channels=1, num_classes=256, device=device)
-    # oc_softmax = OCSoftmax(args.enc_dim, r_real=args.r_real, r_fake=args.r_fake, alpha=args.alpha).to(device)
 
     transforms = torchvision.transforms.Compose([
         lambda x: pad(x),
         lambda x: librosa.util.normalize(x),
-        lambda x: librosa.cqt(x),
         lambda x: Tensor(x),
     ])
 
@@ -227,8 +225,6 @@ def train(parser, device):
                 labels = batch_y.to(device)
                 loss, score = model(batch_x)
 
-                # oc_softmax_loss, score = oc_softmax(feats, labels)
-
                 dev_loss_dict[args.add_loss].append(loss.item())
                 idx_loader.append(labels)
                 score_loader.append(score)
@@ -245,8 +241,6 @@ def train(parser, device):
             print("Val EER: {}".format(val_eer))
 
         torch.save(model.state_dict(), os.path.join('./models/', 'model_%d.pt' % (epoch + 1)))
-        loss_model = oc_softmax
-        torch.save(loss_model.state_dict(), os.path.join('./models/', 'loss_model_%d.pt' % (epoch + 1)))
         end = time.time()
         hours, rem = divmod(end - start, 3600)
         minutes, seconds = divmod(rem, 60)
