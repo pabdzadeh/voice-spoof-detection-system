@@ -27,6 +27,7 @@ class ASVDataset(Dataset):
         data_root = LOGICAL_DATA_ROOT
 
         self.is_eval = is_eval
+        self.is_eval_2021 = is_eval2021
 
         self.data_root = data_root
 
@@ -59,11 +60,16 @@ class ASVDataset(Dataset):
 
     def _parse_line(self, line):
         tokens = line.strip().split(' ')
-
-        if self.is_eval:
+        if self.is_eval_2021:
             return ASVFile(speaker_id='',
                            file_name=tokens[0],
                            path=os.path.join(self.files_dir, tokens[0] + '.flac'),
+                           sys_id=0,
+                           key=0)
+        elif self.is_eval:
+            return ASVFile(speaker_id='',
+                           file_name=tokens[1],
+                           path=os.path.join(self.files_dir, tokens[1] + '.flac'),
                            sys_id=0,
                            key=0)
         return ASVFile(speaker_id=tokens[0],
