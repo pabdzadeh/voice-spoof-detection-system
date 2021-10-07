@@ -1,7 +1,8 @@
 from resnet import *
 from loss import *
 import nnAudio.Spectrogram as torch_spec
-import torch_dct as dct
+from torchaudio import transforms
+
 
 class Model(nn.Module):
     def __init__(self, input_channels, num_classes, device):
@@ -9,6 +10,7 @@ class Model(nn.Module):
 
         self.device = device
         self.cqt = torch_spec.CQT(output_format='Complex', n_bins=100).to(device)
+        self.amp_to_db = transforms.AmplitudeToDB()
         self.resnet = ResNet(3, 256, resnet_type='18', nclasses=256).to(device)
 
         self.mlp_layer1 = nn.Linear(num_classes, 256).to(device)
@@ -21,6 +23,8 @@ class Model(nn.Module):
         x = x.to(self.device)
         x = self.cqt(x)
         x = torch.pow(x[:, :, :, 0], 2) + torch.pow(x[:, :, :, 1], 2)
+        x = self.amp_to_db(x)
+
         x = self.resnet(x.unsqueeze(1).float().to(self.device))
 
         x = F.relu(self.mlp_layer1(x))
