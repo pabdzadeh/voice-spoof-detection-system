@@ -71,7 +71,7 @@ class ASVDataset(Dataset):
                            file_name=tokens[1],
                            path=os.path.join(self.files_dir, tokens[1] + '.flac'),
                            sys_id=0,
-                           key=0)
+                           key=tokens[4])
         return ASVFile(speaker_id=tokens[0],
                        file_name=tokens[1],
                        path=os.path.join(self.files_dir, tokens[1] + '.flac'),

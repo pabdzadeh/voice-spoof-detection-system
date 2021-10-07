@@ -49,13 +49,12 @@ def test_model(model_path, device, batch_size, eval_2021):
             for batch_x, batch_y, batch_meta in test_data_loader:
                 batch_x = batch_x.to(device)
                 labels = batch_y.to(device)
-
                 loss, score = model(batch_x, labels)
 
                 for j in range(labels.size(0)):
                     cm_score_file.write(
                         '%s %s %s\n' % (batch_meta.file_name[j],
-                                        "spoof" if labels[j].data.cpu().numpy() else "bonafide",
+                                        labels[j],
                                         score[j].item()))
 
         evaluate_tDCF_asvspoof19(os.path.join('', './scores/cm_score.txt'),
