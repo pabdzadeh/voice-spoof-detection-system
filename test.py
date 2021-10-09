@@ -54,7 +54,7 @@ def test_model(model_path, device, batch_size, eval_2021):
                 for j in range(labels.size(0)):
                     cm_score_file.write(
                         '%s %s %s\n' % (batch_meta.file_name[j],
-                                        labels[j],
+                                        'bonafide' if labels[j] == float(1) else 'spoof',
                                         score[j].item()))
 
         evaluate_tDCF_asvspoof19(os.path.join('', './scores/cm_score.txt'),

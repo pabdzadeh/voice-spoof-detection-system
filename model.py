@@ -9,15 +9,15 @@ class Model(nn.Module):
         super(Model, self).__init__()
 
         self.device = device
-        self.cqt = torch_spec.CQT(output_format='Complex', n_bins=100).to(device)
+        self.cqt = torch_spec.CQT(output_format='Complex').to(device)
         self.amp_to_db = transforms.AmplitudeToDB()
         self.resnet = ResNet(3, 256, resnet_type='18', nclasses=256).to(device)
 
         self.mlp_layer1 = nn.Linear(num_classes, 256).to(device)
-        self.mlp_layer2 = nn.Linear(256, 128).to(device)
-        self.mlp_layer3 = nn.Linear(128, 2).to(device)
+        self.mlp_layer2 = nn.Linear(256, 256).to(device)
+        self.mlp_layer3 = nn.Linear(256, 256).to(device)
         self.drop_out = nn.Dropout(0.5)
-        self.oc_softmax = OCSoftmax().to(device)
+        self.oc_softmax = OCSoftmax(256).to(device)
 
     def forward(self, x, labels, is_train=True):
         x = x.to(self.device)
