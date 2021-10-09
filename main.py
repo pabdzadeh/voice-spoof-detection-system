@@ -46,11 +46,12 @@ def add_parser(parser):
 
     # Training hyperparameters
     parser.add_argument('--num-epochs', type=int, default=100, help="Number of epochs for training")
+    parser.add_argument('--num-folds', type=int, default=5, help="Number of foldsfor training")
     parser.add_argument('--batch-size', type=int, default=4, help="Mini batch size for training")
     parser.add_argument('--lr', type=float, default=0.001, help="learning rate")
     parser.add_argument('--lr-decay', type=float, default=0.5, help="decay learning rate")
-    parser.add_argument('--interval', type=int, default=20, help="interval to decay lr")
-    parser.add_argument('--epoch', type=int, default=0, help="interval to decay lr")
+    parser.add_argument('--interval', type=int, default=10, help="interval to decay lr")
+    parser.add_argument('--epoch', type=int, default=0, help="current epoch number")
 
     parser.add_argument('--beta-1', type=float, default=0.9, help="bata_1 for Adam")
     parser.add_argument('--beta-2', type=float, default=0.999, help="beta_2 for Adam")
@@ -121,6 +122,20 @@ def pad(x, max_len=64000):
     return padded_x
 
 
+def prepare_weights_to_fix_imbalance(dataset, train_ids):
+    class_sample_count = np.array([5000, 45000])
+    weight = 1. / class_sample_count
+    samples_weight = []
+
+    for t in train_ids:
+        _, key, _ = dataset.__getitem__(t)
+        samples_weight.append(weight[int(key)])
+
+    samples_weight = np.array(samples_weight)
+
+    return samples_weight
+
+
 def train(parser, device):
     print(f'{Color.OKGREEN}Loading  train dataset...{Color.ENDC}')
     args = parser.parse_args()
@@ -132,43 +147,49 @@ def train(parser, device):
         lambda x: Tensor(x),
     ])
 
-    k_fold = KFold(n_splits=5, shuffle=True)
+    k_fold = KFold(n_splits=args.num_folds, shuffle=True)
 
     if args.model_path:
         model.load_state_dict(torch.load(args.model_path))
         print('Model loaded : {}'.format(args.model_path))
 
-    # optimizer = torch.optim.Adam(model.parameters(), lr=args.lr,
-    #                              betas=(args.beta_1, args.beta_2), eps=args.eps, weight_decay=0.0005)
+#     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr,
+#                                  betas=(args.beta_1, args.beta_2), eps=args.eps, weight_decay=0.0005)
 
-    optimizer = torch.optim.SGD(model.parameters(), lr=args.lr, momentum=0.9)
+    optimizer = torch.optim.SGD(model.parameters(), lr=args.lr, momentum=0.9, weight_decay=0.0005)
 
     train_set = dataset_loader.ASVDataset(is_train=True, transform=transforms)
 
-    number_of_epochs = int(args.num_epochs / 5)
+    number_of_epochs = int(args.num_epochs / args.num_folds)
+    checkpoint_epoch = args.epoch % args.num_folds
+    checkpoint_fold = args.epoch // args.num_folds
     monitor_loss = args.add_loss
 
     print(f'{Color.ENDC}Train Start...')
 
     for fold, (train_ids, test_ids) in enumerate(k_fold.split(train_set)):
+        if checkpoint_fold > fold:
+            continue
+
         print(f'{Color.UNDERLINE}{Color.WARNING}Fold {fold}{Color.ENDC}')
         model.train()
-
-        weighted_sampler = torch.utils.data.WeightedRandomSampler(weights=[1, 10], num_samples=len(train_ids),
+        weights = prepare_weights_to_fix_imbalance(train_set, train_ids)
+        weighted_sampler = torch.utils.data.WeightedRandomSampler(weights=weights, num_samples=len(train_ids),
                                                                   replacement=True)
-
+        print(train_set.__getitem__(train_ids[0]))
         train_sub_sampler = torch.utils.data.Subset(train_set, train_ids)
         test_sub_sampler = torch.utils.data.Subset(train_set, test_ids)
 
         train_loader = torch.utils.data.DataLoader(
             train_sub_sampler,
-            batch_size=args.batch_size, sampler=weighted_sampler)
+            batch_size=args.batch_size,
+            sampler=weighted_sampler)
 
         validation_loader = torch.utils.data.DataLoader(
             test_sub_sampler,
             batch_size=args.batch_size)
 
-        for epoch in range(args.epoch, number_of_epochs):
+        for epoch in range(checkpoint_epoch, number_of_epochs):
             start = time.time()
 
             print(f'{Color.OKBLUE}Epoch:{epoch}{Color.ENDC}')
@@ -177,7 +198,7 @@ def train(parser, device):
             train_loss_dict = defaultdict(list)
             dev_loss_dict = defaultdict(list)
 
-            adjust_learning_rate(args, optimizer, epoch)
+            adjust_learning_rate(args, optimizer, fold * number_of_epochs + epoch)
             for batch_x, batch_y, batch_meta in train_loader:
                 batch_x = batch_x.to(device)
                 batch_y = batch_y.view(-1).type(torch.int64).to(device)
