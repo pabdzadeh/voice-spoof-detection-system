@@ -123,7 +123,7 @@ def pad(x, max_len=64000):
 
 
 def prepare_weights_to_fix_imbalance(dataset, train_ids):
-    class_sample_count = np.array([5000, 45000])
+    class_sample_count = np.array([1, 9])
     weight = 1. / class_sample_count
     samples_weight = []
 
@@ -153,16 +153,16 @@ def train(parser, device):
         model.load_state_dict(torch.load(args.model_path))
         print('Model loaded : {}'.format(args.model_path))
 
-#     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr,
-#                                  betas=(args.beta_1, args.beta_2), eps=args.eps, weight_decay=0.0005)
+    optimizer = torch.optim.Adam(model.parameters(), lr=args.lr,
+                                 betas=(args.beta_1, args.beta_2), eps=args.eps, weight_decay=0.0005)
 
-    optimizer = torch.optim.SGD(model.parameters(), lr=args.lr, momentum=0.9, weight_decay=0.0005)
+    # optimizer = torch.optim.SGD(model.parameters(), lr=args.lr, momentum=0.9, weight_decay=0.0005)
 
     train_set = dataset_loader.ASVDataset(is_train=True, transform=transforms)
 
     number_of_epochs = int(args.num_epochs / args.num_folds)
-    checkpoint_epoch = args.epoch % args.num_folds
-    checkpoint_fold = args.epoch // args.num_folds
+    checkpoint_epoch = args.epoch % number_of_epochs
+    checkpoint_fold = args.epoch // number_of_epochs
     monitor_loss = args.add_loss
 
     print(f'{Color.ENDC}Train Start...')
@@ -173,17 +173,17 @@ def train(parser, device):
 
         print(f'{Color.UNDERLINE}{Color.WARNING}Fold {fold}{Color.ENDC}')
         model.train()
-        weights = prepare_weights_to_fix_imbalance(train_set, train_ids)
-        weighted_sampler = torch.utils.data.WeightedRandomSampler(weights=weights, num_samples=len(train_ids),
-                                                                  replacement=True)
-        print(train_set.__getitem__(train_ids[0]))
+        # weights = prepare_weights_to_fix_imbalance(train_set, train_ids)
+        # weighted_sampler = torch.utils.data.WeightedRandomSampler(weights=weights, num_samples=len(train_ids),
+        #                                                           replacement=True)
+
         train_sub_sampler = torch.utils.data.Subset(train_set, train_ids)
         test_sub_sampler = torch.utils.data.Subset(train_set, test_ids)
 
         train_loader = torch.utils.data.DataLoader(
             train_sub_sampler,
-            batch_size=args.batch_size,
-            sampler=weighted_sampler)
+            batch_size=args.batch_size)
+            # sampler=weighted_sampler)
 
         validation_loader = torch.utils.data.DataLoader(
             test_sub_sampler,
@@ -231,7 +231,7 @@ def train(parser, device):
 
                     dev_loss_dict[args.add_loss].append(loss.item())
                     idx_loader.append(labels)
-                    score_loader.append(score)
+                    score_loader.append(score.mean())
 
                 scores = torch.cat(score_loader, 0).data.cpu().numpy()
                 labels = torch.cat(idx_loader, 0).data.cpu().numpy()
