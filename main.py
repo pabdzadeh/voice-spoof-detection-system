@@ -156,7 +156,6 @@ def train(parser, device):
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr,
                                  betas=(args.beta_1, args.beta_2), eps=args.eps, weight_decay=0.0005)
 
-    # optimizer = torch.optim.SGD(model.parameters(), lr=args.lr, momentum=0.9, weight_decay=0.0005)
 
     train_set = dataset_loader.ASVDataset(is_train=True, transform=transforms)
 
@@ -173,6 +172,7 @@ def train(parser, device):
 
         print(f'{Color.UNDERLINE}{Color.WARNING}Fold {fold}{Color.ENDC}')
         model.train()
+
         # weights = prepare_weights_to_fix_imbalance(train_set, train_ids)
         # weighted_sampler = torch.utils.data.WeightedRandomSampler(weights=weights, num_samples=len(train_ids),
         #                                                           replacement=True)
@@ -181,9 +181,7 @@ def train(parser, device):
         test_sub_sampler = torch.utils.data.Subset(train_set, test_ids)
 
         train_loader = torch.utils.data.DataLoader(
-            train_sub_sampler,
-            batch_size=args.batch_size)
-            # sampler=weighted_sampler)
+            train_sub_sampler, batch_size=args.batch_size, shuffle=True)
 
         validation_loader = torch.utils.data.DataLoader(
             test_sub_sampler,
@@ -227,11 +225,11 @@ def train(parser, device):
                 idx_loader, score_loader = [], []
                 for i, (batch_x, batch_y, batch_meta) in enumerate(validation_loader):
                     labels = batch_y.to(device)
-                    loss, score = model(batch_x, labels)
+                    loss, score = model(batch_x, labels, False)
 
                     dev_loss_dict[args.add_loss].append(loss.item())
                     idx_loader.append(labels)
-                    score_loader.append(score.mean())
+                    score_loader.append(score)
 
                 scores = torch.cat(score_loader, 0).data.cpu().numpy()
                 labels = torch.cat(idx_loader, 0).data.cpu().numpy()
