@@ -9,7 +9,7 @@ class Model(nn.Module):
         super(Model, self).__init__()
 
         self.device = device
-        self.cqt = torch_spec.CQT(output_format='Complex').to(device)
+        self.cqt = torch_spec.CQT(output_format='Complex', sr=16000).to(device)
         self.amp_to_db = transforms.AmplitudeToDB()
         self.resnet = ResNet(3, 256, resnet_type='18', nclasses=256).to(device)
 
@@ -22,8 +22,10 @@ class Model(nn.Module):
 
     def forward(self, x, labels, is_train=True):
         x = x.to(self.device)
+
         x = self.cqt(x)
         x = torch.pow(x[:, :, :, 0], 2) + torch.pow(x[:, :, :, 1], 2)
+
         x = self.amp_to_db(x)
 
         x = self.resnet(x.unsqueeze(1).float().to(self.device))
