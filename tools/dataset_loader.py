@@ -31,7 +31,7 @@ class ASVDataset(Dataset):
 
         self.data_root = data_root
 
-        self.dset_name = 'eval2021' if is_eval2021 else 'eval' if is_eval else 'train' if is_train else 'train'
+        self.dset_name = 'eval2021' if is_eval2021 else 'eval' if is_eval else 'train' if is_train else 'dev'
 
         self.protocols_fname = os.path.join(self.data_root, self.dset_name + '.protocol.txt')
 

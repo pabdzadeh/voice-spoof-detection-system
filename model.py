@@ -28,14 +28,14 @@ class Model(nn.Module):
 
         x = self.amp_to_db(x)
 
-        x = self.resnet(x.unsqueeze(1).float().to(self.device))
+        feat, mu = self.resnet(x.unsqueeze(1).float().to(self.device))
 
-        x = F.relu(self.mlp_layer1(x))
-        self.drop_out(x)
-        x = F.relu(self.mlp_layer2(x))
-        self.drop_out(x)
-        x = F.relu(self.mlp_layer3(x))
-        feat = x
+        # x = F.relu(self.mlp_layer1(x))
+        # self.drop_out(x)
+        # x = F.relu(self.mlp_layer2(x))
+        # self.drop_out(x)
+        # x = F.relu(self.mlp_layer3(x))
+        # feat = x
 
 
         return self.oc_softmax(feat, labels, is_train)

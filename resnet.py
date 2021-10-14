@@ -191,4 +191,4 @@ class ResNet(nn.Module):
 
         mu = self.fc_mu(feat)
 
-        return mu
+        return feat, mu

@@ -176,6 +176,7 @@ def train(parser, device):
 
 
     train_set = dataset_loader.ASVDataset(is_train=True, transform=transforms)
+    # dev_set = dataset_loader.ASVDataset(is_train=False, transform=transforms)
 
     # number_of_epochs = int(args.num_epochs / args.num_folds)
     # checkpoint_epoch = args.epoch % number_of_epochs
@@ -195,6 +196,17 @@ def train(parser, device):
     # weighted_sampler = torch.utils.data.WeightedRandomSampler(weights=weights, num_samples=len(train_ids),
     #                                                           replacement=True)
     train_loader, validation_loader = split_dataset_to_train_and_val(k_fold, train_set, batch_size=args.batch_size)
+
+    # train_loader_part = torch.utils.data.DataLoader(
+    #     train_set,
+    #     batch_size=args.batch_size,
+    #     shuffle=True
+    # )
+    # validation_loader_part = torch.utils.data.DataLoader(
+    #     train_set,
+    #     batch_size=args.batch_size, shuffle=True
+    # )
+
     model.train()
 
     # train_sub_sampler = torch.utils.data.Subset(train_set, train_ids)
